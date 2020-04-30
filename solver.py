@@ -1,8 +1,8 @@
 import networkx as nx
 from parse import read_input_file, write_output_file
-from utils import is_valid_network, average_pairwise_distance
+from utils import is_valid_network, average_pairwise_distance, average_pairwise_distance_fast
 import sys
-
+import random
 
 def solve(G):
     """
@@ -16,12 +16,19 @@ def solve(G):
     # TODO: your code here!
     vertices = list(G.nodes)
     edges = list(G.edges.data('weight'))
-    print(vertices)
-    T = nx.Graph()
     res = KruskalMST(vertices, edges)
-    leaves = getLeaves(res)
-    
+
+    T = nx.Graph()
     T.add_weighted_edges_from(res)
+    avg_dist = average_pairwise_distance_fast(T)
+
+    leaves = getLeaves(res)
+    prunedEdges, prunedVertices = pruneLeavesDesc(leaves, res, avg_dist)
+    T.remove_edges_from(prunedEdges)
+    T.remove_nodes_from(prunedVertices)
+    print(T.edges.data('weight'))
+    print(T.nodes)
+    
     return T
 
 # Python program for Kruskal's algorithm to find 
@@ -54,7 +61,7 @@ def KruskalMST(vertices, edges):
 			# weight. If we are not allowed to change the 
 			# given graph, we can create a copy of graph 
 	sortedEdges = sortEdges(edges)
-	print(sortedEdges)
+	#print(sortedEdges)
 
 	parent = [] 
 	rank = [] 
@@ -131,13 +138,76 @@ def getLeaves(mst):
 		else:
 			nodes[v] = (u,v,w)
 
-	#TODO: remove any 0's
-	nodes = [y for y in nodes.values() if y!=(-1,-1,-1)]
+	nodes = {x:y for x,y in nodes.items() if y!=(-1,-1,-1)}
 	print(nodes)
 	return nodes
 
-def pruneLeaves(l):
-	leaves = sortedEdges(l)
+def pruneLeavesDesc(l, res, currentAvg):
+	#VERY naive solution bc we repeat avg_pairwise_distance method on EVERY call
+	leaves = l.values()
+	#print(leaves)
+	removedLeaves = []
+	temp = res.copy()
+	verticesRemoved = {}
+	#start with the largest edge weight of leaves first
+	for elem in reverse(leaves):
+		temp.remove(elem)
+		print(temp)
+		#create new graph to recalculate avg pairwise distance w/o elem
+		Tr = nx.Graph()
+		Tr.add_weighted_edges_from(temp)
+		new_avg = average_pairwise_distance_fast(Tr)
+		#if better avg obtained w/o elem: remove it and update avg
+		#else, add it back and move on to next leaf
+		if new_avg <= currentAvg:
+			removedLeaves.append(elem)
+			verticesRemoved.add([elem[0], elem[1]]) #add vertices to this set
+			currentAvg = new_avg
+			print("removed:"+ str(new_avg))
+		else:
+			temp.add(elem)
+			print("kept:"+ str(new_avg))
+
+	return (removedLeaves, verticesRemoved)
+
+def pruneLeavesRando(l, currentAvg, res):
+	#randomize the order and see if we get different solutions?
+	leaves = sortEdges(l)
+	print(leaves)
+	removedLeaves = []
+	temp = res.copy()
+	bestAvg = currentAvg
+	bestLeaves = []
+	#start with the largest edge weight of leaves first
+	for i in range(0, 15):
+		leaves = random.shuffle(leaves)
+		for elem in leaves:
+			temp.remove(elem)
+			print(temp)
+			#create new graph to recalculate avg pairwise distance w/o elem
+			Tr = nx.Graph()
+			Tr.add_weighted_edges_from(temp)
+			new_avg = average_pairwise_distance(Tr)
+			#if better avg obtained w/o elem: remove it and update avg
+			#else, add it back and move on to next leaf
+			if new_avg <= currentAvg:
+				removedLeaves.append(elem)
+				currentAvg = new_avg
+				print("removed:"+ str(new_avg))
+			else:
+				temp.add(elem)
+				print("kept:"+ str(new_avg))
+		if new_avg <= bestAvg:
+			bestLeaves = removedLeaves.copy()
+			bestAvg = new_avg
+			print(new_avg + "    " + "iteration " +  i)
+		removedLeaves = []
+
+
+	return bestLeaves
+
+
+
 	
 
 # Here's an example of how to run your solver.
