@@ -3,6 +3,7 @@ from parse import read_input_file, write_output_file
 from utils import is_valid_network, average_pairwise_distance, average_pairwise_distance_fast
 import sys
 import random
+from pathlib import Path
 
 def solve(G):
     """
@@ -18,19 +19,29 @@ def solve(G):
     res = KruskalMST(vertices, edges) #creates mst
 
     T = nx.Graph()
+    T.add_nodes_from(vertices)
     T.add_weighted_edges_from(res)
     avg_dist = average_pairwise_distance_fast(T) #current min pairwise avg of mst
+    n = list(T.nodes)
+    #base cases 
+    if len(list(T.nodes)) == 1:
+    	return T
+    if len(list(T.nodes)) == 2:
+    	Te = nx.Graph()
+    	Te.add_node(list(T.nodes)[0])
+    	return Te
+
 
     leaves = getLeaves(res)
-    prunedEdges, prunedVertices, avgRand = pruneLeavesRando(leaves, res, avg_dist)
-    prunedEdgesD, prunedVerticesD, avgDesc = pruneLeavesDesc(leaves, res, avg_dist)
-    #chooses better pairwise avg between descending and randomized leaves
-    if avgDesc < avgRand:
-    	T.remove_edges_from(prunedEdgesD)
-    	T.remove_nodes_from(prunedVerticesD)
-    else:
-    	T.remove_edges_from(prunedEdges)
-    	T.remove_nodes_from(prunedVertices)
+    if leaves != {}:
+    	prunedEdges, prunedVertices, avgRand = pruneLeavesRando(leaves, res, avg_dist, vertices)
+    	prunedEdgesD, prunedVerticesD, avgDesc = pruneLeavesDesc(leaves, res, avg_dist, vertices)
+    	if avgDesc < avgRand:
+    		T.remove_edges_from(prunedEdgesD)
+    		T.remove_nodes_from(prunedVerticesD)
+    	else:
+    		T.remove_edges_from(prunedEdges)
+    		T.remove_nodes_from(prunedVertices)
 
     return T
 
@@ -144,11 +155,12 @@ def getLeaves(mst):
 	#print(nodes)
 	return nodes
 
-def pruneLeavesDesc(l, res, currentAvg):
+def pruneLeavesDesc(l, res, currentAvg, totalVs):
 	'''
 		input: l = all leaves of mst
 			   res = complete mst
 			   avg = mst's current avg 
+			   totalVs = total number of vertices in graph
 		output: (best edges, best vertices) of leaves to be removed
 				from mst to minimize avg
 				runs in order from largest edge to lowest edge
@@ -165,10 +177,13 @@ def pruneLeavesDesc(l, res, currentAvg):
 	for vertex, elem in sorted(leaves.items(), key=by_value, reverse=True):
 		i = temp.index(elem) #index of curr elem; needed so we can add back to temp in right order
 		temp.remove(elem)
+		totalVs.remove(vertex)
 		#print(temp)
 		#create new graph to recalculate avg pairwise distance w/o elem
 		Tr = nx.Graph()
 		Tr.add_weighted_edges_from(temp)
+		Tr.add_nodes_from(totalVs)
+
 		new_avg = average_pairwise_distance_fast(Tr)
 		#if better avg obtained w/o elem: remove it and update avg
 		#else, add it back and move on to next leaf
@@ -178,19 +193,23 @@ def pruneLeavesDesc(l, res, currentAvg):
 			currentAvg = new_avg
 		else:
 			temp.insert(i, elem)
-	print("descAvg:" + str(currentAvg))
+			totalVs.append(vertex)
+	#print("descAvg:" + str(currentAvg))
 	return (removedLeaves, verticesRemoved, currentAvg)
 
-def pruneLeavesRando(l, res, avg):
+def pruneLeavesRando(l, res, avg, totalV):
 	'''
 		input: l = all leaves of mst
 			   res = complete mst
 			   avg = mst's current avg 
+			   totalV = total number of vertices
 		output: (best edges, best vertices) of leaves to be removed
 				from mst to minimize avg
 	'''
+	v = totalV.copy()
 	removedLeaves = []
 	temp = res.copy()
+	#print("current mst: " + str(temp))
 	currentAvg = avg
 	bestAvg = currentAvg
 	bestLeaves = []
@@ -210,11 +229,18 @@ def pruneLeavesRando(l, res, avg):
 		for vertex, elem in leaves.items():
 			ind = temp.index(elem)
 			temp.remove(elem)
-
+			#print("edge being removed: " + str(elem) + " at iteration: " + str(i))
+			v.remove(vertex)
 			#create new graph to recalculate avg pairwise distance w/o elem
 			Tr = nx.Graph()
+			Tr.add_nodes_from(v)
 			Tr.add_weighted_edges_from(temp)
-			new_avg = average_pairwise_distance_fast(Tr)
+			#print("after edge removed, remaining nodes in T: " + str(Tr.nodes))
+			#print("after edge removed, remaining edges in T: " + str(Tr.edges))
+			if Tr.nodes == 0:
+				new_avg = 0
+			else:
+				new_avg = average_pairwise_distance_fast(Tr)
 			#if better avg obtained w/o elem: remove it and update avg
 			#else, add it back and move on to next leaf
 			if new_avg <= currentAvg:
@@ -223,6 +249,7 @@ def pruneLeavesRando(l, res, avg):
 				currentAvg = new_avg
 			else:
 				temp.insert(i, elem)
+				v.append(vertex)
 		if new_avg <= bestAvg:
 			bestLeaves = removedLeaves.copy()
 			bestAvg = new_avg
@@ -233,7 +260,8 @@ def pruneLeavesRando(l, res, avg):
 		verticesRemoved = []
 		currentAvg = avg
 		temp = res.copy()
-	print("rando" + str(bestAvg))
+		v = totalV.copy()
+	#print("rando" + str(bestAvg))
 	return (bestLeaves, bestVerticesRemoved, bestAvg)
 
 
@@ -245,10 +273,22 @@ def pruneLeavesRando(l, res, avg):
 # Usage: python3 solver.py test.in
 
 if __name__ == '__main__':
+    # assert len(sys.argv) == 2
+    # path = sys.argv[1]
+    # G = read_input_file(path)
+    # T = solve(G)
+    # assert is_valid_network(G, T)
+    # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
+    # write_output_file(T, 'outputs/test.out')
+
     assert len(sys.argv) == 2
-    path = sys.argv[1]
-    G = read_input_file(path)
-    T = solve(G)
-    assert is_valid_network(G, T)
-    print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-    write_output_file(T, 'out/test.out')
+    folder = sys.argv[1]
+    pathlist = Path(folder).glob('**/*.in')
+    for path in pathlist:
+    	p = str(path).split("\\")[1].split(".")[0]
+    	print(path)
+    	G = read_input_file(path)
+    	T = solve(G)
+    	assert is_valid_network(G, T)
+    	print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
+    	write_output_file(T, 'outputs/' + str(p) + ".out")
