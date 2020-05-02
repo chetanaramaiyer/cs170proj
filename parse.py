@@ -42,6 +42,9 @@ def read_input_file(path, max_size=None):
             assert tokens[1].isdigit() and int(tokens[1]) < n
             assert bool(re.match(r"(^\d+\.\d{1,3}$|^\d+$)", tokens[2]))
             assert 0 < float(tokens[2]) < 100
+            #if there is a self loop, remove it
+            if(tokens[0] == tokens[1]):
+                lines.remove(line)
 
         G = nx.parse_edgelist(lines, nodetype=int, data=(("weight", float),))
         G.add_nodes_from(range(n))

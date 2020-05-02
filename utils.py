@@ -12,7 +12,6 @@ def is_valid_network(G, T):
     Returns:
         bool: whether T is a valid network
     """
-
     return nx.is_tree(T) and nx.is_dominating_set(G, T.nodes)
 
 
@@ -35,7 +34,7 @@ def average_pairwise_distance(T):
         raise ValueError("Tree must be connected")
 
     if len(T) == 1: return 0
-    
+
     path_lengths = nx.all_pairs_dijkstra_path_length(T)
     total_pairwise_distance = sum([sum(length[1].values()) for length in path_lengths])
     return total_pairwise_distance / (len(T) * (len(T) - 1))
@@ -72,7 +71,7 @@ def average_pairwise_distance_fast(T):
     # store child parent relationships for each edge, because the components
     # created when removing an edge are the child subtree and the rest of the vertices
     root = list(T.nodes)[0];
-    
+
     child_parent_pairs = [(root, root)]
 
     def calculate_subtree_sizes(u):
