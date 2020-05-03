@@ -12,6 +12,7 @@ from heapq import heappop, heappush
 from operator import itemgetter
 from itertools import count
 from math import isnan
+from datetime import datetime
 
 import networkx as nx
 from networkx.utils import UnionFind, not_implemented_for
@@ -58,7 +59,6 @@ def solve(G):
             return central
 
     #visualizeGraph(G, edges, vertices)
-
     best_tree_kruskals, best_avg_kruskals = generateSolutionOne(G, vertices, edges)
 
     #if the graph = spanning tree, just run random pruning a couple of times
@@ -69,13 +69,19 @@ def solve(G):
     if(best_avg_kruskals == 0):
         #print("MST 0")
         return T
-    best_tree_solution_two, best_avg_solution_two = generateSolutionTwo(G)
+    best_tree_solution_two, best_avg_two = generateSolutionTwo(G)
+    best_tree_three, best_avg_three = generateSolutionThree(G,vertices,edges)
 
-    if(best_avg_kruskals < best_avg_solution_two):
+    final_best = min(best_avg_kruskals, best_avg_two, best_avg_three)
+
+    if(final_best == best_avg_kruskals):
         print("MST MST MST")
         return best_tree_kruskals
-    print("SOLUTION TWO")
-    return best_tree_solution_two
+    elif(final_best == best_avg_two):
+        print("SOLUTION TWO")
+        return best_tree_solution_two
+    print("SOLUTION THREE")
+    return best_tree_three
 
 def sortEdges(tup):
 	# getting length of list of tuples
@@ -307,74 +313,6 @@ def pruneLeavesRando(l, res, avg, totalV):
 	#print("rando" + str(bestAvg))
     return (bestLeaves, bestVerticesRemoved, bestAvg)
 
-# def pruneLeavesRandomBunches(leaves, spanning_tree_edges, avg_dist, list_of_vertices):
-
-
-# def reducePickingOfLeaves(leaves, spanning_tree_edges, avg_dist, list_of_vertices, bunchSize):
-#     ''' prunes multiple leaves at a time
-#     input: leaves = all leaves of tree:  {v: (u,v,w) ... }
-#                    spanning_tree_edges = tree's list of edges =  (u,v,w), (u,v,w)
-#                    avg_dist = spanning tree's current avg
-#                    list_of_vertices = spanning tree's list of vertices
-#                    bunchSize = number of vertices to pick from our list of vertices
-#             output: (best edges, best vertices) of leaves to be removed
-#                     from mst to minimize avg
-#     '''
-#     v = copy.deepcopy(list_of_vertices)
-#     removedLeaves = []
-#     temp_tree = copy.deepcopy(spanning_tree_edges)
-#     #print("current mst: " + str(temp))
-#     currentAvg = avg_dist
-#     bestAvg = currentAvg
-#     bestLeaves = []
-#     verticesRemoved = []
-#     bestVerticesRemoved = []
-#     keys = list(l.keys())
-#     def by_value(item):
-#         return item[1]
-#     #start with the largest edge weight of leaves first
-#     for i in range(0, 20):
-#         #randomly generate bunchSize number of indices to remove from leaves
-#         #remove all vertices from tree
-#         #calculate new avg
-#         #if better than curr avg -> update best avg
-#         arr = np.random.randint(0, len(leaves), bunchSize)
-#         temp_tree.remove()
-#         #print("edge being removed: " + str(elem) + " at iteration: " + str(i))
-#         v.remove(vertex)
-#         #create new graph to recalculate avg pairwise distance w/o elem
-#         Tr = nx.Graph()
-#         Tr.add_nodes_from(v)
-#         Tr.add_weighted_edges_from(temp_tree)
-#         #print("after edge removed, remaining nodes in T: " + str(Tr.nodes))
-#         #print("after edge removed, remaining edges in T: " + str(Tr.edges))
-#         if Tr.nodes == 0:
-#             new_avg = 0
-#         else:
-#             new_avg = average_pairwise_distance_fast(Tr)
-#         #if better avg obtained w/o elem: remove it and update avg
-#         #else, add it back and move on to next leaf
-#         if new_avg <= currentAvg:
-#             removedLeaves.append(elem)
-#             verticesRemoved.append(vertex) #add vertices to this set
-#             currentAvg = new_avg
-#         else:
-#             temp_tree.insert(i, elem)
-#             v.append(vertex)
-#         if new_avg <= bestAvg:
-#             bestLeaves = removedLeaves.copy()
-#             bestAvg = new_avg
-#             bestVerticesRemoved = verticesRemoved.copy()
-#             #print(str(new_avg) + "    " + "iteration " +  str(i))
-#         removedLeaves = []
-#         verticesRemoved = []
-#         currentAvg = avg
-#         temp_tree = copy.deepcopy(spanning_tree_edges)
-#         v = copy.deepcopy(totalV)
-#     #print("rando" + str(bestAvg))
-#     return (bestLeaves, bestVerticesRemoved, bestAvg)
-
-
 def dummyTest(G):
     T = nx.Graph()
     T.add_node(list(G.nodes)[0])
@@ -423,6 +361,7 @@ def generateSolutionOne(G, vertices, edges):
     return T, best_avg_mst
 
 def generateSolutionTwo(G):
+    random.seed(datetime.now())
     combination_of_edges = []
     vertices = list(G.nodes)
     num_of_vertices = len(vertices)
@@ -436,42 +375,46 @@ def generateSolutionTwo(G):
     probabilities = [5]*(num_of_edges//5) + [4]*(num_of_edges//5) + [3]*(num_of_edges//5) + [2]*(num_of_edges//5) + [1]*(num_of_edges//5 + num_of_edges%5)
     # making this sum equal to 1
     probabilities /= np.sum(probabilities)
-    totalTimeSteps = 10000
+    #print(probabilities)
+    totalTimeSteps = 100000
     num_of_lowest_appeareances = 0
     graphCount = 0
 
-    while (totalTimeSteps > 0 and graphCount < 50):
+    while (totalTimeSteps > 0 and graphCount < 500):
         # generates random indices on a distribution of sortedEdges array
         samples = np.random.choice(list(range(0,num_of_edges)), size = k, replace = False, p = probabilities)
         combination_of_edges = [sorted_edges[i] for i in samples]
 
         combination_of_verts = {combination_of_edges[0][0]}
-        # checks if it's spanning
+        # collects vertices in generated edges
         for u,v,w in combination_of_edges:
             combination_of_verts.add(v)
             combination_of_verts.add(u)
 
-        # if it is spanning, check if it's a tree
+        # checks if it is spanning
         if(len(combination_of_verts) == num_of_vertices):
             vertices = list(G.nodes)
             solution_T = nx.Graph()
             solution_T.add_nodes_from(vertices)
             solution_T.add_weighted_edges_from(combination_of_edges)
 
-            # if it is a tree, we prune
+            # checks if it is a tree
             if(nx.is_tree(solution_T)):
+                # it is a valid graph, so increase graph count
                 graphCount += 1
                 # calculate initial pairwise distance
                 current_pairwise_dist = average_pairwise_distance_fast(solution_T)
                 leaves = getLeaves(list(solution_T.edges.data('weight')))
-                if leaves != {}:
+                #print("Total time steps: " + str(totalTimeSteps) + "\n")
+                #print("Graph Count" + str(graphCount))
+                if(leaves != {}):
                     prunedEdges, prunedVertices, avgRand = pruneLeavesRando(leaves, combination_of_edges, current_pairwise_dist, vertices)
                     #print("avgRand: " + str(avgRand))
                     prunedEdgesD, prunedVerticesD, avgDesc = pruneLeavesDesc(leaves, combination_of_edges, current_pairwise_dist, vertices)
                     #print("avgDesc: " + str(avgDesc))
                     prunedEdgesAll, prunedVerticesAll, avgAll = pruneLeavesAll(leaves, combination_of_edges, current_pairwise_dist, vertices)
                     #print("avgAll: " + str(avgAll))
-                    better_avg = min(avgRand, avgDesc, avgAll)
+                    better_avg = min(avgRand, avgDesc, avgAll, current_pairwise_dist)
                     # Tracking the number of times the same min is computed
                     if(round(better_avg, 2) == round(best_avg_pairwise,2)):
                         num_of_lowest_appeareances+=1
@@ -484,93 +427,134 @@ def generateSolutionTwo(G):
                             better_avg = avgRand
                             solution_T.remove_edges_from(prunedEdges)
                             solution_T.remove_nodes_from(prunedVertices)
-                        else:
+                        elif avgAll == better_avg:
                             better_avg = avgAll
                             solution_T.remove_edges_from(prunedEdgesAll)
                             solution_T.remove_nodes_from(prunedVerticesAll)
+                        else:
+                            better_avg = current_pairwise_dist
                         best_tree = solution_T
                         best_avg_pairwise = better_avg
                         num_of_lowest_appeareances = 0
                         #print(best_avg_pairwise)
         # If the minimum appears 20 times
-        if((10000-totalTimeSteps) >= 1000 and num_of_lowest_appeareances >= 20):
+        if((100000-totalTimeSteps) >= 1000 and num_of_lowest_appeareances >= 20):
+            #print("lowest appeared 20 times")
             return best_tree, best_avg_pairwise
         totalTimeSteps = totalTimeSteps - 1
     return best_tree, best_avg_pairwise
 
-def simulatedAnnealing(G):
-    vertices = list(G.nodes)
-    edges = list(G.edges.data('weight'))
-    #generating random start vertex
-    v = vertices[random.randint(0,len(vertices) - 1)]
-    #starting our current tree with start vertex
-    solution_T = nx.Graph()
-    solution_T.add_node(v)
+def generateSolutionThree(G, vertices, edges):
+    # calculating heuristics for every vertex
+    heuristics = {}
+    for v in vertices:
+        # getting the weights of outgoing edges --> 0 if there's no edge
+        out_going_weights = nx.adjacency_matrix(G).todense()[v]
+        # summing the outgoing weights
+        sum_of_outgoing = np.sum(out_going_weights)
+        # getting the degree of vertex
+        num_of_outgoing = len(list(G.neighbors(v)))
+        # calculating the average weight of outgoing edges
+        average_outgoing_weight = (sum_of_outgoing) / (num_of_outgoing)
+        # heuristic depends on weight and outdegree
+        # dividing 1 by this so that heuristic for neighbors that don't have edges is inf
+        heuristics[v] = 1/((average_outgoing_weight) / (num_of_outgoing))
+    # sorting potential start nodes in ascending order by their scores
+    starts = sorted(heuristics, key=heuristics.get, reverse=True)
+    final_graph = None
+    final_avg_pairwise = 100000
 
-    curr_pairwise_dist = float("inf")
-    totalTimeSteps = 10000
+    # trying new graphs at every start vertex
+    for s in starts:
+        visited_so_far = [False for i in vertices]
 
-    # timesteps > 0 or until we've added all the vertices to the tree
-    while (totalTimeSteps > 0  or len(list(solution_T.nodes)) < len(vertices)):
-        # getting the minimum outgoing edge
-        #outgoing_Edges = {4: {'weight': 25.643}, 1: {'weight': 54.048}}
-        outgoing_edges = [(n, nbrdict) for n, nbrdict in G.adjacency() if n == v][0][1]
-        degree_One = ()
-        #outgoing_Edges = {(0,4):  25.643, (0,1): 54.048}
-        outgoing_edges = {(v,x):y['weight'] for x,y in outgoing_edges.items()}
-        #min_edge = (0,4)
-        min_edge = min(outgoing_edges.keys(), key=(lambda k: outgoing_edges[k]))
-        #(min_edge, outgoing_edges[min_edge]) = ((0,4), 25)
-        min_edge = (min_edge, outgoing_edges[min_edge])
-        # end vertex of min edge
-        u = min_edge[0][1]
+        solution_T = nx.Graph()
+        solution_T.add_node(s)
+        visited_so_far[s] = True
 
-        temp = solution_T.copy()
-        temp.add_node(u)
-        temp.add_edge(v, u, weight=min_edge[1])
-        temp_pairwise_distance = average_pairwise_distance_fast(temp)
+        # marking all adjacent neighbors of start vertex as visited
+        for v in list(G.neighbors(s)):
+            visited_so_far[v] = True
 
-        if(temp_pairwise_distance < curr_pairwise_dist):
-            try:
-                nx.find_cycle(temp)
-            except:
-                solution_T.add_node(u)
-                solution_T.add_edge(v, u, weight=min_edge[1])
-                v = u
-                curr_pairwise_dist = temp_pairwise_distance
-        elif(math.exp((curr_pairwise_dist - temp_pairwise_distance) / totalTimeSteps) < random.uniform(0,1)):
-            try:
-                nx.find_cycle(temp)
-            except:
-                solution_T.add_node(u)
-                solution_T.add_edge(v, u, weight=min_edge[1])
-                v = u
-                curr_pairwise_dist = temp_pairwise_distance
+        best_curr_avg_pairwise = 10000
+        # WITHIN ONE GRAPH
+        while(len(solution_T.nodes) < len(vertices)):
+            pairwise_averages = []
+            # Looking at every vertex in our current tree
+            for v in list(solution_T.nodes):
+                #print("New vertex \n")
+                #print("V: " + str(v))
+                # Looking at potential crossing edges
+                for n in list(G.neighbors(v)):
+                    #print("N: " + str(n))
+                    visited_so_far[n] = True
+                    # As long as the edge is to another vertex already in the tree
+                    if(n not in list(solution_T.nodes)):
+                        curr_crossing_weight = G[v][n]['weight']
+                        curr_crossing_edge = (v, n)
+                        temp_solution = nx.Graph(solution_T)
+                        temp_solution.add_node(n)
+                        temp_solution.add_edge(curr_crossing_edge[0],curr_crossing_edge[1], weight=curr_crossing_weight)
+                        temp_edges = list(temp_solution.edges.data('weight'))
+                        temp_nodes = list(temp_solution.nodes)
+                        #print(temp_nodes)
+                        curr_crossing_edge = (curr_crossing_edge[0],curr_crossing_edge[1], curr_crossing_weight)
+                        temp_avg_dist = average_pairwise_distance_fast(temp_solution)
+                        pairwise_averages += [(n, curr_crossing_edge, temp_avg_dist)]
 
-        totalTimeSteps *= 1-(0.003);
-    return solution_T
+            # Getting the info of the min crossing edge
+            #print(pairwise_averages)
+            min_pairwise_weight = min([w for v,e,w in pairwise_averages])
+            new_info = [(v,e) for v,e,w in pairwise_averages if w == min_pairwise_weight]
+            #print(new_info)
+            #print("ADDING NODE: " + str(new_info[0][0]))
+            #print("ADDING EDGE: " + str(new_info[0][1][0]) + ", " + str(new_info[0][1][1]))
+            solution_T.add_node(new_info[0][0])
+            solution_T.add_edge(new_info[0][1][0], new_info[0][1][1], weight=new_info[0][1][2])
+            best_curr_avg_pairwise = min_pairwise_weight
 
+        leaves = getLeaves(list(solution_T.edges.data('weight')))
+        pruned_tree, pruned_best_avg = completePrune(solution_T, leaves, list(solution_T.edges.data('weight')), best_curr_avg_pairwise, list(solution_T.nodes))
+        #print("Finished generating one graph: ")
+
+        # After generating one graph
+        if(best_curr_avg_pairwise < final_avg_pairwise):
+            final_graph = solution_T
+            final_avg_pairwise = best_curr_avg_pairwise
+        elif(pruned_best_avg < final_avg_pairwise):
+            final_graph = pruned_tree
+            final_avg_pairwise = pruned_best_avg
+        if(final_avg_pairwise == 0):
+            return final_graph, final_avg_pairwise
+        #print("\n")
+        #print("NEW STARTING POINT")
+
+
+    #print(list(final_graph.nodes))
+    #print(list(final_graph.edges.data("weight")))
+    #print(final_avg_pairwise)
+    return final_graph, final_avg_pairwise
 
 # Here's an example of how to run your solver.
 
 # Usage: python3 solver.py test.in
 
 if __name__ == '__main__':
-    # assert len(sys.argv) == 2
-    # path = sys.argv[1]
-    # G = read_input_file(path)
-    # T = solve(G)
-    # assert is_valid_network(G, T)
-    # print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-    # write_output_file(T, 'outputs/test.out')
     assert len(sys.argv) == 2
-    folder = sys.argv[1]
-    pathlist = Path(folder).glob('**/*.in')
-    for path in pathlist:
-        p = str(path).split("/")[1].split(".")[0]
-        print(path)
-        G = read_input_file(path)
-        T = solve(G)
-        assert is_valid_network(G, T)
-        print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
-        write_output_file(T, 'outputs/' + str(p) + ".out")
+    path = sys.argv[1]
+    G = read_input_file(path)
+    T = solve(G)
+    assert is_valid_network(G, T)
+    print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
+    write_output_file(T, 'outputs/test.out')
+    # assert len(sys.argv) == 2
+    # folder = sys.argv[1]
+    # pathlist = Path(folder).glob('**/*.in')
+    # for path in pathlist:
+    #     p = str(path).split("/")[1].split(".")[0]
+    #     print(path)
+    #     G = read_input_file(path)
+    #     T = solve(G)
+    #     assert is_valid_network(G, T)
+    #     print("Average  pairwise distance: {}".format(average_pairwise_distance(T)))
+    #     write_output_file(T, 'outputs/' + str(p) + ".out")
